@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     // 32 KB of ROM memory (0x0000 - 0x7FFF)
 	// 32 KB of RAM memory (0x8000 - 0xFFFF)
 	FILE *in_file;
-	if (in_file = fopen(argv[1], "rb")) { // read only
+	if ((in_file = fopen(argv[1], "rb"))) { // read only
 		// file exists
 	} else {
 		// If no file is found, print it on the LCD
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
 	uint8_t mem[(1<<16)];
 	
 	// Load ROM file into Memory
-	int loadROM;
+	int loadROM = 0;
 	char c;
 	while ((c = fgetc(in_file)) != EOF)
 	{
@@ -225,7 +225,6 @@ int main(int argc, char **argv) {
 			switch (getDevice(pins)) {
 				case 0: // LCD Data
 					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
-					refreshLCD();
 					break;
 				case 1: // LCD Instruction
 					if (pins & Z80_WR) {
@@ -233,19 +232,18 @@ int main(int argc, char **argv) {
 					} else if (pins & Z80_RD) {
 						Z80_SET_DATA(pins, vrEmuLcdReadByte(lcd));
 					}
-					refreshLCD();
 					break;
 				case 2: // Serial I/O
 					//Z80_SET_DATA(pins, keyboard);
 					if (keyboard != 0) {
 						keyboard = 0;
 					}
-					refreshLCD();
 					break;
 				case 3: // Keyboard Input
 					// Somehow emulate PS/2 Keyboard
 					break;
 			}
+			refreshLCD();
 		}
 		// Wait to simulate CPU Clock
 		//SDL_Delay(100);
