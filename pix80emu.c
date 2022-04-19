@@ -43,13 +43,13 @@
 // Initialize a few things
 VrEmuLcd *lcd;
 SDL_Renderer *renderer;
+
 bool running = true;
 SDL_Event event;
-static const int scale = 7;
 
 // Window dimensions
-static const int width = 119*7;
-static const int height = 35*7;
+static const int width = 119;
+static const int height = 35;
 
 // Get the current I/O Device number
 uint16_t getDevice(uint64_t pins) {
@@ -59,35 +59,40 @@ uint16_t getDevice(uint64_t pins) {
 
 // Update and Redraw LCD
 int refreshLCD() {
+	vrEmuLcdUpdatePixels(lcd);   // generates a snapshot of the pixels state
+	
+	// Scale Renderer
+	int w;
+	int h;
+	SDL_GetRendererOutputSize(renderer, &w, &h);
+	int windowWidth = w;
+	int windowHeight = h;
+	SDL_RenderSetScale(renderer, (windowWidth / width), (windowHeight / height));
+	
 	// Clear screen
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
-	// then periodically, render it. 
-	vrEmuLcdUpdatePixels(lcd);   // generates a snapshot of the pixels state
 	
 	for (int y = 0; y < vrEmuLcdNumPixelsY(lcd); ++y) {
 	  for (int x = 0; x < vrEmuLcdNumPixelsX(lcd); ++x) {
 		// do whatever you like with the pixel information. render it to a texture, output it to  a console, whatever
 	   // values returned are:  -1 = no pixel (character borders), 0 = pixel off, 1 = pixel on
 		char pixel = vrEmuLcdPixelState(lcd, x, y);
-		SDL_Rect pixDraw[] = {
-			{ x*scale, y*scale, x*scale+scale, y*scale+scale }
-		};
 		switch (pixel) {
 			case -1:
 				SDL_SetRenderDrawColor(renderer, 50, 72, 253, 255);
-				// OLD SDL_SetRenderDrawColor(renderer, 31, 139, 255, 255);
-				SDL_RenderFillRect(renderer,pixDraw);
+				//OLD SDL_SetRenderDrawColor(renderer, 31, 139, 255, 255);
+				SDL_RenderDrawPoint(renderer,x,y);
 				break;
 			case 0:
 				SDL_SetRenderDrawColor(renderer, 50, 60, 254, 255);
 				// OLD SDL_SetRenderDrawColor(renderer, 61, 171, 255, 255);
-				SDL_RenderFillRect(renderer,pixDraw);
+				SDL_RenderDrawPoint(renderer,x,y);
 				break;
 			case 1:
 				SDL_SetRenderDrawColor(renderer, 240, 252, 253, 255);
 				// OLD SDL_SetRenderDrawColor(renderer, 245, 253, 255, 255);
-				SDL_RenderFillRect(renderer,pixDraw);
+				SDL_RenderDrawPoint(renderer,x,y);
 				break;
 		}
 	  }
@@ -99,13 +104,14 @@ int refreshLCD() {
 }
 
 int main(int argc, char **argv) {
+	int delayTime = atoi(argv[2]);
 	// ---------------------- Rendering ----------------------
     
     // Initialize SDL
     CHECK_ERROR(SDL_Init(SDL_INIT_VIDEO) != 0, SDL_GetError());
 
     // Create an SDL window
-    SDL_Window *window = SDL_CreateWindow("Pix80Emu", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL);
+    SDL_Window *window = SDL_CreateWindow("Pix80Emu", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
     CHECK_ERROR(window == NULL, SDL_GetError());
 
     // Create a renderer (accelerated and in sync with the display refresh rate)
@@ -113,6 +119,8 @@ int main(int argc, char **argv) {
     CHECK_ERROR(renderer == NULL, SDL_GetError());
 
     // Initial renderer color
+	SDL_SetWindowSize(window,width*7,height*7);
+	SDL_SetWindowPosition(window,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED);
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_RenderPresent(renderer);
@@ -166,7 +174,17 @@ int main(int argc, char **argv) {
 	// run code until HALT pin (active low) goes low
 	char keyboard;
 	char capslock = 0;
+	int timer = SDL_GetTicks();
 	while(running) {  
+		// refresh screen, if timer says so
+		int timer2 = SDL_GetTicks();
+		// Update every 16ms, ~60fps
+		if (timer2 >= timer + 16) {
+			refreshLCD();
+			timer = SDL_GetTicks();
+		}
+		
+	
 		// Process Keyboard Inputs
 		while(SDL_PollEvent(&event)) {
 			if(event.type == SDL_QUIT) {
@@ -195,20 +213,20 @@ int main(int argc, char **argv) {
 				// Issue Interrupt
 				if (keyboard != 0) {
 					//pins |= Z80_INT;
-					keyboard = 0;
+					//keyboard = 0;
 				} else {
-					pins &= ~Z80_INT;
+					//pins &= ~Z80_INT;
 				}
 			}
 		}
 		
         // tick the CPU
-        pins = z80_tick(&cpu, pins);  
+        pins = z80_tick(&cpu, pins); 
 		
 		// Check to see if Interrupt is triggered
-		if (pins & Z80_INT) {
-			printf("INT\n");
-		}
+		//if (pins & Z80_INT) {
+			//printf("INT\n");
+		//}
 
         // handle memory read or write access
         if (pins & Z80_MREQ) {
@@ -235,18 +253,17 @@ int main(int argc, char **argv) {
 					break;
 				case 2: // Serial I/O
 					//Z80_SET_DATA(pins, keyboard);
-					if (keyboard != 0) {
-						keyboard = 0;
-					}
+					//if (keyboard != 0) {
+					//	keyboard = 0;
+					//}
 					break;
 				case 3: // Keyboard Input
 					// Somehow emulate PS/2 Keyboard
 					break;
 			}
-			refreshLCD();
 		}
 		// Wait to simulate CPU Clock
-		//SDL_Delay(100);
+		SDL_Delay(delayTime);
     }
 	
 	stop:
