@@ -22,11 +22,6 @@
 #include <time.h>
 #include <string.h>
 #include <SDL2/SDL.h>
-// Normally SDL2 will redefine the main entry point of the program for Windows applications
-// this doesn't seem to play nice with TCC, so we just undefine the redefinition
-#ifdef __TINYC__
-    #undef main
-#endif
 
 // Utility macros
 #define CHECK_ERROR(test, message) \
@@ -59,9 +54,11 @@ uint16_t getDevice(uint64_t pins) {
 
 // Update and Redraw LCD
 int refreshLCD() {
-	vrEmuLcdUpdatePixels(lcd);   // generates a snapshot of the pixels state
+	// generates a snapshot of the pixels state
+	vrEmuLcdUpdatePixels(lcd);
 	
 	// Scale Renderer
+	// TODO: Find a nice way of doing this that doesn't need to be run every frame. Just seems wasteful, even if it's minor.
 	int w;
 	int h;
 	SDL_GetRendererOutputSize(renderer, &w, &h);
@@ -70,26 +67,28 @@ int refreshLCD() {
 	SDL_RenderSetScale(renderer, (windowWidth / width), (windowHeight / height));
 	
 	// Clear screen
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-	SDL_RenderClear(renderer);
+	// The rendercolor shouldn't matter for this
+	//SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	// Plus the screen doesn't need to be cleared, since it's drawn over anyways
+	//SDL_RenderClear(renderer); 
 	
+	// Loop through LCD Pixels
 	for (int y = 0; y < vrEmuLcdNumPixelsY(lcd); ++y) {
 	  for (int x = 0; x < vrEmuLcdNumPixelsX(lcd); ++x) {
-		// do whatever you like with the pixel information. render it to a texture, output it to  a console, whatever
 	   // values returned are:  -1 = no pixel (character borders), 0 = pixel off, 1 = pixel on
 		char pixel = vrEmuLcdPixelState(lcd, x, y);
 		switch (pixel) {
-			case -1:
+			case -1:	// Character Borders
 				SDL_SetRenderDrawColor(renderer, 50, 72, 253, 255);
 				//OLD SDL_SetRenderDrawColor(renderer, 31, 139, 255, 255);
 				SDL_RenderDrawPoint(renderer,x,y);
 				break;
-			case 0:
+			case 0:		// Pixel Off
 				SDL_SetRenderDrawColor(renderer, 50, 60, 254, 255);
 				// OLD SDL_SetRenderDrawColor(renderer, 61, 171, 255, 255);
 				SDL_RenderDrawPoint(renderer,x,y);
 				break;
-			case 1:
+			case 1:		// Pixel On
 				SDL_SetRenderDrawColor(renderer, 240, 252, 253, 255);
 				// OLD SDL_SetRenderDrawColor(renderer, 245, 253, 255, 255);
 				SDL_RenderDrawPoint(renderer,x,y);
@@ -104,9 +103,10 @@ int refreshLCD() {
 }
 
 int main(int argc, char **argv) {
+	// Get the delayTime for slowmode in milliseconds
 	int delayTime = atoi(argv[2]);
+	
 	// ---------------------- Rendering ----------------------
-    
     // Initialize SDL
     CHECK_ERROR(SDL_Init(SDL_INIT_VIDEO) != 0, SDL_GetError());
 
@@ -118,15 +118,18 @@ int main(int argc, char **argv) {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);    
     CHECK_ERROR(renderer == NULL, SDL_GetError());
 
-    // Initial renderer color
+	// Scale Window an arbitrary amount and center it
 	SDL_SetWindowSize(window,width*7,height*7);
 	SDL_SetWindowPosition(window,SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED);
+	
+    // Initial renderer color
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderClear(renderer);
+	// While the above seems useless on paper, it's a nice way to check if the screen is being refreshed or not
     SDL_RenderPresent(renderer);
 	
 	// ---------------------- Hardware ----------------------
-	// LCD init
+	// Initalize LCD
 	lcd = vrEmuLcdNew(LCD_WIDTH, LCD_HEIGHT, EmuLcdRomA00);
 	
     // 32 KB of ROM memory (0x0000 - 0x7FFF)
@@ -160,6 +163,7 @@ int main(int argc, char **argv) {
 		  // hit end of file
 		} else {
 		  // some other error interrupted the read
+            //fprintf(stderr, "%s\n", (message));
 		}
 	}
 
@@ -172,24 +176,26 @@ int main(int argc, char **argv) {
 	
 	// ---------------------- Actual Emulation ----------------------
 	// run code until HALT pin (active low) goes low
-	char keyboard;
-	char capslock = 0;
-	int timer = SDL_GetTicks();
+	int refreshTimer = SDL_GetTicks();
 	while(running) {  
-		// refresh screen, if timer says so
-		int timer2 = SDL_GetTicks();
-		// Update every 16ms, ~60fps
-		if (timer2 >= timer + 16) {
+		// Compare SDL_GetTicks() against refreshTimer value
+		// If it's been more than 16ms, update the screen, and reset the refreshTimer
+		if (SDL_GetTicks() >= refreshTimer + 16) {
 			refreshLCD();
-			timer = SDL_GetTicks();
+			refreshTimer = SDL_GetTicks();
 		}
 		
 	
 		// Process Keyboard Inputs
+		// This code is quite messy and will likely be thrown out in favor of a proper implementation that more closely matches the Bitstream that PS/2 brings
+		// Hence it's commented out until I get a hardware version of this done that I can then work into a Software implementation
+		// Main reason I don't just outright delete it is because it's then easier to re-figure the stuff
+		// for Interrupts and Keyboard input out easier without hours of needles Google Searching.
 		while(SDL_PollEvent(&event)) {
 			if(event.type == SDL_QUIT) {
 				running = false;
-			} else if(event.type == SDL_KEYDOWN) {
+			} /*else if(event.type == SDL_KEYDOWN) {
+				
 				// Handle Keyboard input
 				const char *key = SDL_GetKeyName(event.key.keysym.sym);
 				//printf("%s\n",key);
@@ -217,16 +223,16 @@ int main(int argc, char **argv) {
 				} else {
 					//pins &= ~Z80_INT;
 				}
-			}
+			}*/
 		}
-		
-        // tick the CPU
-        pins = z80_tick(&cpu, pins); 
 		
 		// Check to see if Interrupt is triggered
 		//if (pins & Z80_INT) {
 			//printf("INT\n");
 		//}
+		
+        // tick the CPU
+        pins = z80_tick(&cpu, pins); 
 
         // handle memory read or write access
         if (pins & Z80_MREQ) {
@@ -239,15 +245,17 @@ int main(int argc, char **argv) {
 				// Write to Memory 
                 mem[Z80_GET_ADDR(pins)] = Z80_GET_DATA(pins);
             }
-        } else if (pins & Z80_IORQ) { // Handle I/O Devices (Read)
+        } else if (pins & Z80_IORQ) { // Handle I/O Devices
+			// These Device cases will probably be reworked soon, due to the Hardware changing into a more simplified form
+			// Additionally, being able to pick what Peripheral corresponds to what Device Number modularly is probably a more logical approach regardless
 			switch (getDevice(pins)) {
-				case 0: // LCD Data
+				case 0: // Send Data to the LCD
 					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
 					break;
 				case 1: // LCD Instruction
-					if (pins & Z80_WR) {
+					if (pins & Z80_WR) {	// When the LCD is being talked to
 						vrEmuLcdSendCommand(lcd, Z80_GET_DATA(pins));
-					} else if (pins & Z80_RD) {
+					} else if (pins & Z80_RD) { // When the LCD is being polled for Data
 						Z80_SET_DATA(pins, vrEmuLcdReadByte(lcd));
 					}
 					break;
@@ -262,10 +270,12 @@ int main(int argc, char **argv) {
 					break;
 			}
 		}
+		
 		// Wait to simulate CPU Clock
 		SDL_Delay(delayTime);
     }
 	
+	// Used to halt the Emulator in case of an error (i.e. no ROM to execute etc.)
 	stop:
     while(running) {
 		// Process events
