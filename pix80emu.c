@@ -70,7 +70,7 @@ int refreshLCD() {
 	// The rendercolor shouldn't matter for this
 	//SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	// Plus the screen doesn't need to be cleared, since it's drawn over anyways
-	//SDL_RenderClear(renderer); 
+	SDL_RenderClear(renderer); 
 	
 	// Loop through LCD Pixels
 	for (int y = 0; y < vrEmuLcdNumPixelsY(lcd); ++y) {
@@ -249,15 +249,15 @@ int main(int argc, char **argv) {
 			// These Device cases will probably be reworked soon, due to the Hardware changing into a more simplified form
 			// Additionally, being able to pick what Peripheral corresponds to what Device Number modularly is probably a more logical approach regardless
 			switch (getDevice(pins)) {
-				case 0: // Send Data to the LCD
-					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
-					break;
-				case 1: // LCD Instruction
+				case 0: // LCD Instruction
 					if (pins & Z80_WR) {	// When the LCD is being talked to
 						vrEmuLcdSendCommand(lcd, Z80_GET_DATA(pins));
 					} else if (pins & Z80_RD) { // When the LCD is being polled for Data
 						Z80_SET_DATA(pins, vrEmuLcdReadByte(lcd));
 					}
+					break;
+				case 1: // Send Data to the LCD
+					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
 					break;
 				case 2: // Serial I/O
 					//Z80_SET_DATA(pins, keyboard);
