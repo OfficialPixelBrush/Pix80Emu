@@ -41,6 +41,7 @@ SDL_Renderer *renderer;
 
 bool running = true;
 SDL_Event event;
+int delayTime;
 
 // Window dimensions
 static const int width = 119;
@@ -104,7 +105,7 @@ int refreshLCD() {
 
 int main(int argc, char **argv) {
 	// Get the delayTime for slowmode in milliseconds
-	int delayTime = atoi(argv[2]);
+	delayTime = atoi(argv[2]);
 	
 	// ---------------------- Rendering ----------------------
     // Initialize SDL
@@ -257,6 +258,8 @@ int main(int argc, char **argv) {
 					}
 					break;
 				case 1: // Send Data to the LCD
+					// Wait to simulate CPU Clock
+					SDL_Delay(delayTime);
 					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
 					break;
 				case 2: // Serial I/O
@@ -270,9 +273,6 @@ int main(int argc, char **argv) {
 					break;
 			}
 		}
-		
-		// Wait to simulate CPU Clock
-		SDL_Delay(delayTime);
     }
 	
 	// Used to halt the Emulator in case of an error (i.e. no ROM to execute etc.)
