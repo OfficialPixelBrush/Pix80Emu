@@ -12,9 +12,9 @@
  */
 
 
-#include <vrEmuLcd.h>
+#include "./include/vrEmuLcd.h"
 #define CHIPS_IMPL
-#include <z80.h>
+#include "./include/z80.h"
 
 #include <stdio.h>
 #include <stdlib.h>

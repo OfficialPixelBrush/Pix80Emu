@@ -9,7 +9,7 @@
  *
  */
 
-#include "vrEmuLcd.h"
+#include "./include/vrEmuLcd.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <memory.h>
