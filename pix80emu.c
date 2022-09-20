@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
 				}
 				else if (pins & Z80_WR) {
 					// Write to Memory 
-					if (Z80_GET_ADDR(pins) >= 0x8000) {
+					if (Z80_GET_ADDR(pins) > 0x7FFF) {
 						mem[Z80_GET_ADDR(pins)] = Z80_GET_DATA(pins);
 					} else {
 						printf("Trying to access ROM\n");
