@@ -42,6 +42,7 @@ SDL_Renderer *renderer;
 bool running = true;
 SDL_Event event;
 int delayTime;
+int frameAdvance = 0;
 
 // Window dimensions
 static const int width = 119;
@@ -195,8 +196,12 @@ int main(int argc, char **argv) {
 		while(SDL_PollEvent(&event)) {
 			if(event.type == SDL_QUIT) {
 				running = false;
-			} /*else if(event.type == SDL_KEYDOWN) {
-				
+			} else if(event.type == SDL_KEYDOWN) {
+				const char *key = SDL_GetKeyName(event.key.keysym.sym);
+				if(strcmp(key, "E") == 0) {
+					frameAdvance = 1;
+				}        
+				/*
 				// Handle Keyboard input
 				const char *key = SDL_GetKeyName(event.key.keysym.sym);
 				//printf("%s\n",key);
@@ -223,8 +228,8 @@ int main(int argc, char **argv) {
 					//keyboard = 0;
 				} else {
 					//pins &= ~Z80_INT;
-				}
-			}*/
+				}*/
+			}
 		}
 		
 		// Check to see if Interrupt is triggered
@@ -233,44 +238,51 @@ int main(int argc, char **argv) {
 		//}
 		
         // tick the CPU
-        pins = z80_tick(&cpu, pins); 
+		// Wait to simulate CPU Clock
+		if (frameAdvance == 1) {
+			frameAdvance = 0;
+			pins = z80_tick(&cpu, pins); 
+			//SDL_Delay(delayTime);
 
-        // handle memory read or write access
-        if (pins & Z80_MREQ) {
-            if (pins & Z80_RD) {
-				// Read Instructions
-                Z80_SET_DATA(pins, mem[Z80_GET_ADDR(pins)]);
-				//printf("%X - %X\n", Z80_GET_DATA(pins), Z80_GET_ADDR(pins));
-            }
-            else if (pins & Z80_WR) {
-				// Write to Memory 
-                mem[Z80_GET_ADDR(pins)] = Z80_GET_DATA(pins);
-            }
-        } else if (pins & Z80_IORQ) { // Handle I/O Devices
-			// These Device cases will probably be reworked soon, due to the Hardware changing into a more simplified form
-			// Additionally, being able to pick what Peripheral corresponds to what Device Number modularly is probably a more logical approach regardless
-			switch (getDevice(pins)) {
-				case 0: // LCD Instruction
-					if (pins & Z80_WR) {	// When the LCD is being talked to
-						vrEmuLcdSendCommand(lcd, Z80_GET_DATA(pins));
-					} else if (pins & Z80_RD) { // When the LCD is being polled for Data
-						Z80_SET_DATA(pins, vrEmuLcdReadByte(lcd));
+			// handle memory read or write access
+			if (pins & Z80_MREQ) {
+				if (pins & Z80_RD) {
+					// Read Instructions
+					Z80_SET_DATA(pins, mem[Z80_GET_ADDR(pins)]);
+					printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
+				}
+				else if (pins & Z80_WR) {
+					// Write to Memory 
+					if (Z80_GET_ADDR(pins) >= 0x8000) {
+						mem[Z80_GET_ADDR(pins)] = Z80_GET_DATA(pins);
+					} else {
+						printf("Trying to access ROM\n");
 					}
-					break;
-				case 1: // Send Data to the LCD
-					// Wait to simulate CPU Clock
-					SDL_Delay(delayTime);
-					vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
-					break;
-				case 2: // Serial I/O
-					//Z80_SET_DATA(pins, keyboard);
-					//if (keyboard != 0) {
-					//	keyboard = 0;
-					//}
-					break;
-				case 3: // Keyboard Input
-					// Somehow emulate PS/2 Keyboard
-					break;
+				}
+			} else if (pins & Z80_IORQ) { // Handle I/O Devices
+				// These Device cases will probably be reworked soon, due to the Hardware changing into a more simplified form
+				// Additionally, being able to pick what Peripheral corresponds to what Device Number modularly is probably a more logical approach regardless
+				switch (getDevice(pins)) {
+					case 0: // LCD Instruction
+						if (pins & Z80_WR) {	// When the LCD is being talked to
+							vrEmuLcdSendCommand(lcd, Z80_GET_DATA(pins));
+						} else if (pins & Z80_RD) { // When the LCD is being polled for Data
+							Z80_SET_DATA(pins, vrEmuLcdReadByte(lcd));
+						}
+						break;
+					case 1: // Send Data to the LCD
+						vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
+						break;
+					case 2: // Serial I/O
+						//Z80_SET_DATA(pins, keyboard);
+						//if (keyboard != 0) {
+						//	keyboard = 0;
+						//}
+						break;
+					case 3: // Keyboard Input
+						// Somehow emulate PS/2 Keyboard
+						break;
+				}
 			}
 		}
     }
@@ -286,7 +298,7 @@ int main(int argc, char **argv) {
 				const char *key = SDL_GetKeyName(event.key.keysym.sym);
 				if(strcmp(key, "Q") == 0) {
 					running = false;
-				}                 
+				}           
 			}
 		}
 	}
