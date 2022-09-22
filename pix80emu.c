@@ -42,7 +42,8 @@ SDL_Renderer *renderer;
 bool running = true;
 SDL_Event event;
 int delayTime;
-int frameAdvance = 0;
+int fA = 0;
+int faToggle = 0;
 
 // Window dimensions
 static const int width = 119;
@@ -107,6 +108,7 @@ int refreshLCD() {
 int main(int argc, char **argv) {
 	// Get the delayTime for slowmode in milliseconds
 	delayTime = atoi(argv[2]);
+	faToggle  = atoi(argv[3]);
 	
 	// ---------------------- Rendering ----------------------
     // Initialize SDL
@@ -199,7 +201,7 @@ int main(int argc, char **argv) {
 			} else if(event.type == SDL_KEYDOWN) {
 				const char *key = SDL_GetKeyName(event.key.keysym.sym);
 				if(strcmp(key, "E") == 0) {
-					frameAdvance = 1;
+					fA = 1;
 				}        
 				/*
 				// Handle Keyboard input
@@ -232,17 +234,12 @@ int main(int argc, char **argv) {
 			}
 		}
 		
-		// Check to see if Interrupt is triggered
-		//if (pins & Z80_INT) {
-			//printf("INT\n");
-		//}
-		
         // tick the CPU
 		// Wait to simulate CPU Clock
-		if (frameAdvance == 1) {
-			frameAdvance = 0;
+		if ((fA == 1) || (faToggle == 0)) {
+			fA = 0;
 			pins = z80_tick(&cpu, pins); 
-			//SDL_Delay(delayTime);
+			SDL_Delay(delayTime);
 
 			// handle memory read or write access
 			if (pins & Z80_MREQ) {
@@ -272,15 +269,6 @@ int main(int argc, char **argv) {
 						break;
 					case 1: // Send Data to the LCD
 						vrEmuLcdWriteByte(lcd, Z80_GET_DATA(pins));
-						break;
-					case 2: // Serial I/O
-						//Z80_SET_DATA(pins, keyboard);
-						//if (keyboard != 0) {
-						//	keyboard = 0;
-						//}
-						break;
-					case 3: // Keyboard Input
-						// Somehow emulate PS/2 Keyboard
 						break;
 				}
 			}
