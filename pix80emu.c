@@ -40,6 +40,66 @@ uint16_t getDevice(uint64_t pins) {
 	return addr;
 }
 
+const char* decodeFlags(uint8_t flags) {
+	static char textFlags[7] = "-------";
+	 // Carry
+	if ((flags & Z80_CF) != 0) {
+		textFlags[7] = 'C';
+	} else {
+		textFlags[7] = 'c';
+	}
+	
+	// Add/Subtract
+	if ((flags & Z80_NF) != 0) {
+		textFlags[6] = 'N'; 
+	} else {
+		textFlags[6] = 'n'; 
+	}
+	
+	// Parity/Overflow
+	if ((flags & Z80_VF) != 0) {
+		textFlags[5] = 'P';
+	} else {
+		textFlags[5] = 'p';
+	}	
+	
+	// Unused
+	if ((flags & Z80_XF) != 0) {
+		textFlags[4] = 'X'; 
+	} else {
+		textFlags[4] = 'x'; 
+	}
+	
+	// Half-Carry
+	if ((flags & Z80_HF) != 0) {
+		textFlags[3] = 'H';
+	} else {
+		textFlags[3] = 'h';
+	}
+	
+	// Unused
+	if ((flags & Z80_YF) != 0) {
+		textFlags[2] = 'X';
+	} else {
+		textFlags[2] = 'x';
+	}
+	// Zero
+	if ((flags & Z80_ZF) != 0) {
+		textFlags[1] = 'Z';
+	} else {
+		textFlags[1] = 'z';
+	}
+	
+	// Sign
+	if ((flags & Z80_SF) != 0) {
+		textFlags[0] = 'S';
+	} else {
+		textFlags[0] = 's';
+	}
+	
+	return textFlags;
+}
+
 int main(int argc, char **argv) {
 	// Get the delayTime for slowmode in milliseconds
 	delayTime = atoi(argv[2]);
@@ -88,8 +148,13 @@ int main(int argc, char **argv) {
         // tick the CPU
 		// Wait to simulate CPU Clock
 		pins = z80_tick(&cpu, pins); 
-		if (infoFlag == 1) {
-			printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
+		switch (infoFlag) {
+			case 1:
+				printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
+				break;
+			case 2:
+				printf("%s | A: %02hX | B: %02hX - C: %02hX | D: %02hX - E: %02hX | H: %02hX - L: %02hX | ADDR: %04hX\n", decodeFlags(cpu.f), cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.pc);
+				break;
 		}
 		SDL_Delay(delayTime);
 
@@ -113,7 +178,7 @@ int main(int argc, char **argv) {
 			switch (getDevice(pins)) {
 				case 0: // Send to screen
 					if (pins & Z80_WR) {	// When the LCD is being talked to
-						printf("%hi",(signed short)Z80_GET_DATA(pins));
+						printf("%u",Z80_GET_DATA(pins));
 					}
 					break;
 			}
