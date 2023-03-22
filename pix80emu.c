@@ -33,6 +33,7 @@
 bool running = true;
 SDL_Event event;
 int delayTime;
+int infoFlag;
 // Get the current I/O Device number
 uint16_t getDevice(uint64_t pins) {
     const uint16_t addr = Z80_GET_ADDR(pins) & 0b111;
@@ -42,6 +43,7 @@ uint16_t getDevice(uint64_t pins) {
 int main(int argc, char **argv) {
 	// Get the delayTime for slowmode in milliseconds
 	delayTime = atoi(argv[2]);
+	infoFlag = atoi(argv[3]);
 		
     // 32 KB of ROM memory (0x0000 - 0x7FFF)
 	// 32 KB of RAM memory (0x8000 - 0xFFFF)
@@ -86,6 +88,9 @@ int main(int argc, char **argv) {
         // tick the CPU
 		// Wait to simulate CPU Clock
 		pins = z80_tick(&cpu, pins); 
+		if (infoFlag == 1) {
+			printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
+		}
 		SDL_Delay(delayTime);
 
 		// handle memory read or write access
@@ -93,7 +98,6 @@ int main(int argc, char **argv) {
 			if (pins & Z80_RD) {
 				// Read Instructions
 				Z80_SET_DATA(pins, mem[Z80_GET_ADDR(pins)]);
-				//printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
 			}
 			else if (pins & Z80_WR) {
 				// Write to Memory 
@@ -109,7 +113,7 @@ int main(int argc, char **argv) {
 			switch (getDevice(pins)) {
 				case 0: // Send to screen
 					if (pins & Z80_WR) {	// When the LCD is being talked to
-						printf("%c",Z80_GET_DATA(pins));
+						printf("%hi",(signed short)Z80_GET_DATA(pins));
 					}
 					break;
 			}
