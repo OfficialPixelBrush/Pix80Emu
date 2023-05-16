@@ -158,10 +158,12 @@ int main(int argc, char **argv) {
 		}
 		SDL_Delay(delayTime);
 
-		// handle memory read or write access
+		// TODO: Handle I/O Memory Banking		// handle memory read or write access
 		if (pins & Z80_MREQ) {
 			if (pins & Z80_RD) {
 				// Read Instructions
+				// TODO: Account for banking
+				// If Adress is in banking, load banked mem, if not IO 0
 				Z80_SET_DATA(pins, mem[Z80_GET_ADDR(pins)]);
 			}
 			else if (pins & Z80_WR) {
@@ -173,15 +175,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		} else if (pins & Z80_IORQ) { // Handle I/O Devices
-			// These Device cases will probably be reworked soon, due to the Hardware changing into a more simplified form
-			// Additionally, being able to pick what Peripheral corresponds to what Device Number modularly is probably a more logical approach regardless
-			switch (getDevice(pins)) {
-				case 0: // Send to screen
-					if (pins & Z80_WR) {	// When the LCD is being talked to
-						printf("%u",Z80_GET_DATA(pins));
-					}
-					break;
-			}
+			// TODO: Handle with proper banking
 		}
     }
 	
