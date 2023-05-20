@@ -15,11 +15,20 @@
 #include <z80.h>
 
 #include <stdio.h>
+#include <conio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
 #include <string.h>
 #include <SDL2/SDL.h>
+
+#define ROMSTART  0x0000
+#define ROMEND    0x7FFF
+#define RAMSTART  0x8000
+#define RAMEND    0xFFFF
+
+#define BANKSTART 0x4000
+#define BANKEND   0x7FFF
 
 // Utility macros
 #define CHECK_ERROR(test, message) \
@@ -34,11 +43,8 @@ bool running = true;
 SDL_Event event;
 int delayTime;
 int infoFlag;
-// Get the current I/O Device number
-uint16_t getDevice(uint64_t pins) {
-    const uint16_t addr = Z80_GET_ADDR(pins) & 0b111;
-	return addr;
-}
+int currentBank = 0;
+char latestKeyboardCharacter;
 
 const char* decodeFlags(uint8_t flags) {
 	static char textFlags[7] = "-------";
@@ -110,29 +116,25 @@ int main(int argc, char **argv) {
 	FILE *in_file;
 	if ((in_file = fopen(argv[1], "rb"))) { // read only
 		// file exists
+		printf("Loading ROM from %s\n",argv[1]);
+		// Find out filesize
+		fseek(in_file, 0L, SEEK_END);
+		int filesize = ftell(in_file);
+		rewind(in_file);
+		// Print file info
+		printf("File is 0x%04hX Bytes large\n",filesize);
 	} else {
 		printf("No file found!");
 		goto stop;
 	}
 	// Initalize all memory
-	uint8_t mem[(1<<16)];
+	uint8_t mem[(1<<16)] = { 0 };
+	uint8_t banks[1<<3][(1<<14)] = { 0 };
 	
 	// Load ROM file into Memory
-	int loadROM = 0;
-	char c;
-	while ((c = fgetc(in_file)) != EOF)
-	{
-		mem[loadROM] = c;
-		loadROM++;
-	
-		// end-of-file related
-		if (feof(in_file)) {
-		  // hit end of file
-		} else {
-		  // some other error interrupted the read
-            //fprintf(stderr, "%s\n", (message));
-		}
-	}
+	size_t bytes_read = 0;
+	bytes_read = fread(mem, sizeof(unsigned char), 0x7FFF, in_file);
+	printf("ROM of size 0x%04hX/0x7FFF was loaded\n",(int)bytes_read);
 
     // initialize Z80 CPU
     z80_t cpu;
@@ -148,35 +150,90 @@ int main(int argc, char **argv) {
         // tick the CPU
 		// Wait to simulate CPU Clock
 		pins = z80_tick(&cpu, pins); 
+		// Handle interrupts
+		if ((pins & Z80_INT) && (pins & Z80_M1)) {
+			printf("Interrupt received\n");
+			// Disable interrupt pin
+			pins &= ~Z80_INT;
+			pins &= ~Z80_HALT;
+		}
+		
+		if (pins & Z80_HALT) {
+			printf("HALT ");
+		}
+		
+		
+		// Debug Info
 		switch (infoFlag) {
 			case 1:
-				printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc);
+				printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX BANK:%02hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc, currentBank);
 				break;
 			case 2:
-				printf("%s | A: %02hX | B: %02hX - C: %02hX | D: %02hX - E: %02hX | H: %02hX - L: %02hX | ADDR: %04hX\n", decodeFlags(cpu.f), cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.pc);
+				printf("%s | A: %02hX | B: %02hX - C: %02hX | D: %02hX - E: %02hX | H: %02hX - L: %02hX | ADDR: %04hX BANK:%02hX\n", decodeFlags(cpu.f), cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.pc, currentBank);
+				break;
+			default:
 				break;
 		}
 		SDL_Delay(delayTime);
 
-		// TODO: Handle I/O Memory Banking		// handle memory read or write access
+		// TODO: Handle I/O Memory Banking
+		// handle memory read or write access
+        const uint16_t addr = Z80_GET_ADDR(pins);
 		if (pins & Z80_MREQ) {
 			if (pins & Z80_RD) {
 				// Read Instructions
-				// TODO: Account for banking
 				// If Adress is in banking, load banked mem, if not IO 0
-				Z80_SET_DATA(pins, mem[Z80_GET_ADDR(pins)]);
+				if ((addr >= BANKSTART) && (addr <= BANKEND) && (currentBank != 0)) {
+					Z80_SET_DATA(pins, banks[currentBank][addr&0x3FFF]);
+				} else {
+					Z80_SET_DATA(pins, mem[addr]);
+				}
+
 			}
 			else if (pins & Z80_WR) {
-				// Write to Memory 
-				if (Z80_GET_ADDR(pins) > 0x7FFF) {
-					mem[Z80_GET_ADDR(pins)] = Z80_GET_DATA(pins);
+				// If writing to memory
+				int addr = Z80_GET_ADDR(pins);
+				// Check if we're in a memory bank instead of main memory
+				if ((addr >= BANKSTART) && (addr <= BANKEND) && (currentBank != 0)) {
+					banks[currentBank][addr&0x3FFF] = Z80_GET_DATA(pins);
 				} else {
-					printf("Trying to access ROM\n");
+					// If we're within regular memory, make sure we can't write to ROM
+					if (addr >= RAMSTART) {
+						mem[addr] = Z80_GET_DATA(pins);
+					} else {
+						printf("Failed trying to write to ROM\n");
+					}
 				}
 			}
 		} else if (pins & Z80_IORQ) { // Handle I/O Devices
-			// TODO: Handle with proper banking
+			// Update Bank if A7 is high during IORQ
+			if (addr & 0b10000000) {
+				currentBank = ((addr & 0b01110000) >> 4);
+			}
+			// Do IO Stuff
+			switch ((addr & 0b01110000) >> 4) {
+				case 0:
+					printf("\t%c\n",Z80_GET_DATA(pins));
+					break;
+				case 1:
+					if (pins & Z80_RD) {
+						Z80_SET_DATA(pins,latestKeyboardCharacter);
+					}
+					break;
+				default:
+					printf("Invalid IO Device\n");
+					break;
+			}
 		}
+		
+		/// Interrupts are to be issued here
+		// Keyboard interrupt
+        if (kbhit()) {
+            // fetch typed character into ch
+            latestKeyboardCharacter = getch();
+			printf("Keyboard Hit: %c\n", latestKeyboardCharacter);
+			pins = pins | Z80_INT;
+        } 
     }
 	
 	// Used to halt the Emulator in case of an error (i.e. no ROM to execute etc.)
