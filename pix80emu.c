@@ -45,6 +45,7 @@ int delayTime;
 int infoFlag;
 int currentBank = 0;
 char latestKeyboardCharacter;
+uint16_t addr;
 
 const char* decodeFlags(uint8_t flags) {
 	static char textFlags[7] = "-------";
@@ -149,18 +150,20 @@ int main(int argc, char **argv) {
 	while(running) {
         // tick the CPU
 		// Wait to simulate CPU Clock
-		pins = z80_tick(&cpu, pins); 
-		// Handle interrupts
-		if ((pins & Z80_INT) && (pins & Z80_M1)) {
-			printf("Interrupt received\n");
-			// Disable interrupt pin
-			pins &= ~Z80_INT;
-			pins &= ~Z80_HALT;
-		}
+		pins = z80_tick(&cpu, pins);
 		
+		/*
 		if (pins & Z80_HALT) {
 			printf("HALT ");
 		}
+		
+		if (pins & Z80_INT) {
+			printf("INT ");
+		}
+		
+		if (pins & Z80_NMI) {
+			printf("NMI ");
+		}*/
 		
 		
 		// Debug Info
@@ -178,7 +181,7 @@ int main(int argc, char **argv) {
 
 		// TODO: Handle I/O Memory Banking
 		// handle memory read or write access
-        const uint16_t addr = Z80_GET_ADDR(pins);
+        addr = Z80_GET_ADDR(pins);
 		if (pins & Z80_MREQ) {
 			if (pins & Z80_RD) {
 				// Read Instructions
@@ -206,33 +209,43 @@ int main(int argc, char **argv) {
 				}
 			}
 		} else if (pins & Z80_IORQ) { // Handle I/O Devices
+			if (pins & Z80_M1) {
+				// an interrupt acknowledge cycle, depending on the emulated system,
+				// put either an instruction byte, or an interrupt vector on the data bus
+				Z80_SET_DATA(pins, 0x3C);
+				pins &= ~Z80_INT;
+			}
 			// Update Bank if A7 is high during IORQ
 			if (addr & 0b10000000) {
 				currentBank = ((addr & 0b01110000) >> 4);
 			}
 			// Do IO Stuff
-			switch ((addr & 0b01110000) >> 4) {
-				case 0:
-					printf("\t%c\n",Z80_GET_DATA(pins));
+			switch (addr & 0b01110000) {
+				case 0b00000000:
+					if (pins & Z80_WR) {
+						printf("%c",Z80_GET_DATA(pins));
+					}
 					break;
-				case 1:
+				case 0b00010000:
 					if (pins & Z80_RD) {
 						Z80_SET_DATA(pins,latestKeyboardCharacter);
 					}
 					break;
+				/*
 				default:
-					printf("Invalid IO Device\n");
+					printf("Invalid IO Device %02hX\n",(addr & 0b01110000));
 					break;
+				*/ 
 			}
 		}
 		
 		/// Interrupts are to be issued here
 		// Keyboard interrupt
         if (kbhit()) {
-            // fetch typed character into ch
+            // fetch typed character into latestKeyboardCharacter
             latestKeyboardCharacter = getch();
-			printf("Keyboard Hit: %c\n", latestKeyboardCharacter);
-			pins = pins | Z80_INT;
+			//printf("Keyboard Hit: %c\n", latestKeyboardCharacter);
+			pins |= Z80_INT;
         } 
     }
 	
