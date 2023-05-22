@@ -232,6 +232,11 @@ int main(int argc, char **argv) {
 						Z80_SET_DATA(pins,latestKeyboardCharacter);
 					}
 					break;
+				case 0b00100000:
+					if (pins & Z80_WR) {
+						printf("%02hX",Z80_GET_DATA(pins));
+					}
+					break;
 				/*
 				default:
 					printf("Invalid IO Device %02hX\n",(addr & 0b01110000));
