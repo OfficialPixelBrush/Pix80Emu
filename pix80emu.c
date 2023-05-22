@@ -48,7 +48,8 @@ char latestKeyboardCharacter;
 uint16_t addr;
 
 const char* decodeFlags(uint8_t flags) {
-	static char textFlags[7] = "-------";
+	// 8 because it stores 8 chars, 0 indexed
+	static char textFlags[8] = "-------";
 	 // Carry
 	if ((flags & Z80_CF) != 0) {
 		textFlags[7] = 'C';
