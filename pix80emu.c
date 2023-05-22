@@ -186,6 +186,7 @@ int main(int argc, char **argv) {
 		if (pins & Z80_MREQ) {
 			if (pins & Z80_RD) {
 				// Read Instructions
+				//printf("Read from %04hX\n",addr);
 				// If Adress is in banking, load banked mem, if not IO 0
 				if ((addr >= BANKSTART) && (addr <= BANKEND) && (currentBank != 0)) {
 					Z80_SET_DATA(pins, banks[currentBank][addr&0x3FFF]);
@@ -196,6 +197,7 @@ int main(int argc, char **argv) {
 			}
 			else if (pins & Z80_WR) {
 				// If writing to memory
+				//printf("Wrote to %04hX\n",addr);
 				int addr = Z80_GET_ADDR(pins);
 				// Check if we're in a memory bank instead of main memory
 				if ((addr >= BANKSTART) && (addr <= BANKEND) && (currentBank != 0)) {
