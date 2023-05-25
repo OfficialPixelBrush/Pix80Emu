@@ -233,6 +233,9 @@ int main(int argc, char **argv) {
 					if (pins & Z80_RD) {
 						Z80_SET_DATA(pins,latestKeyboardCharacter);
 					}
+					if (pins & Z80_WR) {
+						printf("%c",Z80_GET_DATA(pins));
+					}
 					break;
 				case 0b00100000:
 					if (pins & Z80_WR) {
@@ -243,7 +246,7 @@ int main(int argc, char **argv) {
 				default:
 					printf("Invalid IO Device %02hX\n",(addr & 0b01110000));
 					break;
-				*/ 
+				*/
 			}
 		}
 		
