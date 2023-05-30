@@ -10,7 +10,17 @@
  * flawlessly and with high accuracy.
  *
  */
-
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  ((byte) & 0x80 ? '1' : '0'), \
+  ((byte) & 0x40 ? '1' : '0'), \
+  ((byte) & 0x20 ? '1' : '0'), \
+  ((byte) & 0x10 ? '1' : '0'), \
+  ((byte) & 0x08 ? '1' : '0'), \
+  ((byte) & 0x04 ? '1' : '0'), \
+  ((byte) & 0x02 ? '1' : '0'), \
+  ((byte) & 0x01 ? '1' : '0') 
+  
 #define CHIPS_IMPL
 #include <z80.h>
 
@@ -207,7 +217,7 @@ int main(int argc, char **argv) {
 					if (addr >= RAMSTART) {
 						mem[addr] = Z80_GET_DATA(pins);
 					} else {
-						printf("Failed trying to write to ROM\n");
+						// printf("Failed trying to write to ROM\n");
 					}
 				}
 			}
@@ -215,7 +225,7 @@ int main(int argc, char **argv) {
 			if (pins & Z80_M1) {
 				// an interrupt acknowledge cycle, depending on the emulated system,
 				// put either an instruction byte, or an interrupt vector on the data bus
-				Z80_SET_DATA(pins, 0x3C);
+				Z80_SET_DATA(pins, 0x08);
 				pins &= ~Z80_INT;
 			}
 			// Update Bank if A7 is high during IORQ
@@ -226,10 +236,14 @@ int main(int argc, char **argv) {
 			switch (addr & 0b01110000) {
 				case 0b00000000:
 					if (pins & Z80_WR) {
-						printf("%c",Z80_GET_DATA(pins));
+						printf(BYTE_TO_BINARY_PATTERN"\n",BYTE_TO_BINARY(Z80_GET_DATA(pins)));
 					}
 					break;
 				case 0b00010000:
+					// Terminal
+					if (pins & Z80_WR) {
+						printf("%c",Z80_GET_DATA(pins));
+					}
 					if (pins & Z80_RD) {
 						Z80_SET_DATA(pins,latestKeyboardCharacter);
 					}
