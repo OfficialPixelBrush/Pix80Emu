@@ -22,7 +22,7 @@
   ((byte) & 0x01 ? '1' : '0') 
   
 #define CHIPS_IMPL
-#include <z80.h>
+#include "./include/z80.h"
 
 #include <stdio.h>
 #include <conio.h>
@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <string.h>
-#include <SDL2/SDL.h>
+// #include <SDL2/SDL.h>
 
 #define ROMSTART  0x0000
 #define ROMEND    0x7FFF
