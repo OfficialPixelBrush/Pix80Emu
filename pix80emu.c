@@ -1,4 +1,4 @@
-#/*
+/*
  *  ___        ___  __   ___
  * | . \<>__  < . >|  | | __| _ _  _  _
  * |  _/||\ \// . \| \| | _| / | \| || |
@@ -43,11 +43,16 @@
 bool running = true;
 //SDL_Event event;
 int delayTime;
-unsigned char infoFlag;
+unsigned char infoFlag = 0;
 int currentBank = 0;
 char latestKeyboardCharacter;
 uint16_t addr;
 z80_t cpu;
+
+// Initalize all memory
+uint8_t onBoardROM[(1<<14)] = { 0 };
+// Initalize all memory
+uint8_t onBoardRAM[(1<<15)] = { 0 };
 
 const char* decodeFlags(uint8_t flags) {
 	// 8 because it stores 8 chars, 0 indexed
@@ -123,13 +128,33 @@ void printDebugInfo() {
     }
 }
 
-uint8_t getMappedMemory(uint16_t address) {
+uint8_t readMappedMemory(uint16_t address) {
     if (address < 0x4000) {
         // Constant ROM
+		return onBoardROM[address];
     } else if (address < 0x8000) {
         // Banking Area
+		// Check with the I/O Object how it's memory is set up
+		return 0;
     } else if (address >= 0x8000) {
         // Constant RAM
+		return onBoardRAM[address-0x8000];
+    }
+    // Outside of mapable memory!
+    return 0;
+}
+
+uint8_t writeMappedMemory(uint16_t address, uint8_t data) {
+    if (address < 0x4000) {
+        // Constant ROM
+		// Can't write to ROM :^)
+    } else if (address < 0x8000) {
+        // Banking Area
+		// Check with the I/O Object how it's memory is set up
+		return 0;
+    } else if (address >= 0x8000) {
+        // Constant RAM
+		onBoardRAM[address-0x8000] = data;
     }
     // Outside of mapable memory!
     return 0;
@@ -156,13 +181,11 @@ int main(int argc, char **argv) {
 		printf("No file found!\n");
 		return 1;
 	}
-	// Initalize all memory
-	uint8_t mem[(1<<16)] = { 0 };
 	
 	// Load ROM file into Memory
 	size_t bytes_read = 0;
-	bytes_read = fread(mem, sizeof(unsigned char), 0x7FFF, in_file);
-	printf("ROM of size 0x%04hX/0x7FFF was loaded\n",(int)bytes_read);
+	bytes_read = fread(onBoardROM, sizeof(unsigned char), 0x4000, in_file);
+	printf("ROM of size 0x%04hX/0x4000 was loaded\n",(int)bytes_read);
 
     // initialize Z80 CPU
     uint64_t pins = z80_init(&cpu);
@@ -189,11 +212,11 @@ int main(int argc, char **argv) {
 		if (pins & Z80_MREQ) {
 			if (pins & Z80_RD) {
 				// Read Instructions
-				Z80_SET_DATA(pins, mem[addr]);
+				Z80_SET_DATA(pins, readMappedMemory(addr));
 			}
 			else if (pins & Z80_WR) {
 				// If writing to memory
-                mem[addr] = Z80_GET_DATA(pins);
+                writeMappedMemory(addr,Z80_GET_DATA(pins));
 			}
 		} else if (pins & Z80_IORQ) { // Handle I/O Devices
 		    // Might make use of the fact
