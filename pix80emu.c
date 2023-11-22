@@ -44,7 +44,7 @@
 bool running = true;
 //SDL_Event event;
 int delayTime;
-unsigned char infoFlag = 0;
+unsigned char infoFlag = 2;
 int currentBank = 0;
 char latestKeyboardCharacter;
 uint16_t addr;
@@ -200,6 +200,7 @@ int main(int argc, char **argv) {
 	while(running) {
         // tick the CPU
 		// Wait to simulate CPU Clock
+		usleep(100000);
 		pins = z80_tick(&cpu, pins);
 		
 		// Debug Info
@@ -232,9 +233,8 @@ int main(int argc, char **argv) {
 		        // Most likely where the Serial Port will be
 		        case 0b00100000:
 		            if (pins & Z80_WR) {
-		                //putchar(Z80_GET_DATA(pins));
-		                printf("%c", Z80_GET_DATA(pins));
-		                usleep(1);
+		                putchar(Z80_GET_DATA(pins));
+		                //printf("%c", Z80_GET_DATA(pins));
 		            }
 		            break;
 		        default:
