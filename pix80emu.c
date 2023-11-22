@@ -29,6 +29,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 //#include <SDL2/SDL.h>
 
 // Utility macros
@@ -231,7 +232,9 @@ int main(int argc, char **argv) {
 		        // Most likely where the Serial Port will be
 		        case 0b00100000:
 		            if (pins & Z80_WR) {
-		                putchar(Z80_GET_DATA(pins));
+		                //putchar(Z80_GET_DATA(pins));
+		                printf("%c", Z80_GET_DATA(pins));
+		                usleep(1);
 		            }
 		            break;
 		        default:

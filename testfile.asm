@@ -12,38 +12,39 @@ loop:
 CALL pauseProcess
 JP loop
 
-; IX contains the pointer to the start of the Program's memory
-; the first 256 bytes of a program are just it's header info
 createProcess:
+
 RET
 
 ; pause process with whatever PID has been provided
 ; last address of the program has been pushed to stack
+; must be called via a CALL to push address
 pauseProcess:
-POP HL
-DEC SP
-DEC SP
-LD A,H
-OUT (32),A
-LD A,L
-OUT (32),A
-; push IX to stack
-;PUSH IX
-; return stack to where it was before
-;INC SP
-;INC SP
-; snatch PC
-
-;PUSH AF
-;PUSH BC
-;PUSH DE
-;PUSH HL
-;PUSH IX
-;PUSH IY
+; disable interrupts during this
+DI
+PUSH SP
+PUSH AF
+PUSH BC
+PUSH DE
+PUSH HL
+PUSH IX
+PUSH IY
+; reenable them
+EI
 RET
 
 ; resume process with whatever PID has been provided
+; must be called via a JMP to not change SP
 resumeProcess:
+DI
+POP IY
+POP IX
+POP HL
+POP DE
+POP BC
+POP AF
+POP SP
+EN
 RET
 
 ; deallocate and unload process with provided PID
