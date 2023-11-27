@@ -15,9 +15,8 @@
 ; --- Program Header --- 
 ; PID (1 byte)
 ; Number of Chunks (1 byte)
-; DE, PC, SP, AF, BC, HL, IX, IY (2+2+2+2+2+2+2+2 = 32 bytes)
-; 34 Byte Header
-; 64 Byte Header Total, 30 Bytes spare
+; SP, AF, BC, DE, HL, IX, IY (2+2+2+2+2+2+2+2 = 32 bytes)
+; 32 Byte Header
 
 ; first byte is number of active process'
 processListing EQU 0x9000
@@ -62,6 +61,7 @@ RET
 pauseProcess:
 DI
 
+LD 
 EI
 JP selectNextProcess 
 
@@ -70,14 +70,6 @@ JP selectNextProcess
 ; PID to be resumed provided by A
 resumeProcess:
 DI
-LD ($8000),A
-LD A, 0
-LD ($8001),A
-LD IX, ($8000) ; transfer Process Header Pointer to IX
-LD H,(IX+0)
-LD L,(IX+1)
-PUSH HL ; prep return address
-LD A,(IX+2) ; prep A register
 EN
 RET
 
