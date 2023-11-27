@@ -12,6 +12,13 @@
 ; the PID is the first one that's been marked as "empty"
 ; the pointer is determined based on the PID
 
+; --- Program Header --- 
+; PID (1 byte)
+; Number of Chunks (1 byte)
+; DE, PC, SP, AF, BC, HL, IX, IY (2+2+2+2+2+2+2+2 = 32 bytes)
+; 34 Byte Header
+; 64 Byte Header Total, 30 Bytes spare
+
 ; first byte is number of active process'
 processListing EQU 0x9000
 
@@ -49,40 +56,12 @@ createProcess:
     LD (processListing), A
 RET
 
-; pause process with whatever PID has been provided
+; pause process with whatever PID has been provided via A
 ; last address of the program has been pushed to stack
 ; must be called via a CALL to push address
 pauseProcess:
-DI ; disable interrupts
-; IX points to the current Process' header
-PUSH HL ; push hl to stack
-INC SP
-INC SP  ; go up a step on the stack
-POP BC  ; load PC into HL
-; write PC to header
-LD (IX+0), H
-LD (IX+1), L
-; load the og HL back in
-DEC SP
-DEC SP
-DEC SP
-DEC SP ; go back to where HL is stored
-POP HL ; put HL back where it belongs
+DI
 
-; go back to before the pc was pushed
-INC SP
-INC SP
-INC SP
-INC SP
-
-; write all dem registers to the header
-LD (IX+2), A
-; TODO: prolly faster using stack operations for this!!
-; e.g.  put the stack pointer here temporarily, then dump the data,
-;       then move it back to where it was
-; TODO: Doing thats suggested above is necessary,
-;       since we can't put the stack on there otherwise lol
-LD A,(IX) ; get process address
 EI
 JP selectNextProcess 
 
