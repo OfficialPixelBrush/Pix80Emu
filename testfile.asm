@@ -59,16 +59,25 @@ RET
 ; last address of the program has been pushed to stack
 ; must be called via a CALL to push address
 pauseProcess:
+; Stolen from
+; https://domipheus.com/blog/teensy-z80-homebrew-computer-part-5-implementing-preemptive-multithreading/
 DI
-
-EI
+PUSH HL
+PUSH BC
+PUSH AF
+PUSH DE
+PUSH IX
+PUSH IY
+LD (localStackLocation), SP
+EXX         ; TIL that the shadow registers
+EX AF,AF'   ; aren't mirrors of the normal regs 
 JP selectNextProcess 
 
 ; resume process with whatever PID has been provided
 ; must be called via a JMP to not change SP
 ; PID to be resumed provided by A
 resumeProcess:
-DI
+
 EN
 RET
 
