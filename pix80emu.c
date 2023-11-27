@@ -122,7 +122,7 @@ void printDebugInfo() {
 		    printf("AF: %04hX - BC: %04hX - DE: %04hX - HL: %04hX - ADDR: %04hX BANK:%02hX\n", cpu.af, cpu.bc, cpu.de, cpu.hl, cpu.pc, currentBank);
 		    break;
 	    case 2:
-		    printf("%s | A: %02hX | B: %02hX - C: %02hX | D: %02hX - E: %02hX | H: %02hX - L: %02hX | ADDR: %04hX BANK:%02hX\n", decodeFlags(cpu.f), cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.pc, currentBank);
+		    printf("%s | A: %02hX | B: %02hX - C: %02hX | D: %02hX - E: %02hX | H: %02hX - L: %02hX | OP: %02hX ADDR: %04hX BANK:%02hX\n", decodeFlags(cpu.f), cpu.a, cpu.b, cpu.c, cpu.d, cpu.e, cpu.h, cpu.l, cpu.opcode, cpu.pc, currentBank);
 		    break;
 	    default:
 		    break;

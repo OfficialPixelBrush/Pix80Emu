@@ -12,18 +12,18 @@
 ; the PID is the first one that's been marked as "empty"
 ; the pointer is determined based on the PID
 
-; --- Program Header --- 
-; PID (1 byte)
-; Number of Chunks (1 byte)
-; SP, AF, BC, DE, HL, IX, IY (2+2+2+2+2+2+2+2 = 32 bytes)
-; 32 Byte Header
-
 ; first byte is number of active process'
-processListing EQU 0x9000
+tempStackLocation EQU 0x8000
+numberOfProcesses EQU 0x8002
+currentProcess EQU 0x8003
 
+; init
 LD A,0
-LD (processListing), A
-loop:
+LD (numberOfProcesses), A
+LD (currentProcess), A
+; IM 2 ; set interrupt mode 2 
+
+; create programs
     LD HL, programOne
     LD A,H
     OUT (32),A
@@ -32,12 +32,13 @@ loop:
     LD A,H
     OUT (32),A
     CALL createProcess
-    JP selectNextProcess
-HALT
+    JR selectNextProcess
+    ; go to process selection
 ;JP loop
 
+ORG 0x0038
 selectNextProcess:
-    ; go into here with ID of last process
+    LD A,(currentProcess)
     CP 1 ; if last ID was 1
     JR Z, resumeSecond
     JR resumeFirst
@@ -47,17 +48,17 @@ selectNextProcess:
     resumeSecond:
         LD A, 2
         JP resumeProcess
-HALT
+HALT ; something went horribly wrong lol
 
-createProcess:
-    LD A,(processListing)
+createProcess: ; increment number of process'
+    EI
+    LD A,(numberOfProcesses)
     INC A
-    LD (processListing), A
+    LD (numberOfProcesses), A
+    DI
 RET
 
-; pause process with whatever PID has been provided via A
-; last address of the program has been pushed to stack
-; must be called via a CALL to push address
+; pause currentProcess
 pauseProcess:
 ; Stolen from
 ; https://domipheus.com/blog/teensy-z80-homebrew-computer-part-5-implementing-preemptive-multithreading/
@@ -68,18 +69,25 @@ PUSH AF
 PUSH DE
 PUSH IX
 PUSH IY
-LD (localStackLocation), SP
+LD (tempStackLocation), SP
 EXX         ; TIL that the shadow registers
 EX AF,AF'   ; aren't mirrors of the normal regs 
 JP selectNextProcess 
 
-; resume process with whatever PID has been provided
-; must be called via a JMP to not change SP
-; PID to be resumed provided by A
+; resume process with whatever PID has been provided via currentProcess
 resumeProcess:
-
-EN
-RET
+LD A,(currentProcess)
+; load data for given process
+EX AF,AF'
+EXX
+LD SP,(tempStackLocation) ; maybe handle this var via PID?
+POP IY
+POP IX
+POP DE 
+POP AF
+POP BC
+POP HL
+RET ; crashes here
 
 ; deallocate and unload process with provided PID
 killProcess:
@@ -90,10 +98,10 @@ programOne:
     ; print from 'A' until 'E'
     LD A,'A'
     loopOne:
-        CALL pauseProcess ; pause Process to go to other process
         OUT (32),A
         INC A
         CP 'E'
+        CALL pauseProcess ; pause Process to go to other process
         JP C,loopOne
     HALT
     ;RET
@@ -103,10 +111,10 @@ programTwo:
     ; print from 'U' until 'X'
     LD A,'T'
     loopTwo:
-        CALL pauseProcess ; pause Process to go to other process
         OUT (32),A
         INC A
         CP 'Z'
+        CALL pauseProcess ; pause Process to go to other process
         JP Z,loopTwo
     HALT
     ; Best case the application would be killed here
