@@ -61,7 +61,6 @@ RET
 pauseProcess:
 DI
 
-LD 
 EI
 JP selectNextProcess 
 
